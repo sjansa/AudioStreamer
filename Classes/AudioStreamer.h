@@ -114,11 +114,15 @@ extern NSString * const ASStatusChangedNotification;
 	double seekTime;
 	double sampleRate;
 	double lastProgress;
+	bool hasReadFromHeaders;
+	NSUInteger contentLength;
+	NSUInteger bytesRead;
 }
 
 @property AudioStreamerErrorCode errorCode;
 @property (readonly) AudioStreamerState state;
 @property (readonly) double progress;
+@property (readonly) double percentageCompleted;
 @property (readonly) UInt32 bitRate;
 
 - (id)initWithURL:(NSURL *)aURL;

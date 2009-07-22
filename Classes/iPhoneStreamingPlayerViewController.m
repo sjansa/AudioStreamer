@@ -240,6 +240,7 @@
 		positionLabel.text =
 			[NSString stringWithFormat:@"Time Played: %.1f seconds",
 				progress];
+		playbackProgressView.progress = streamer.percentageCompleted;
 	}
 	else
 	{

@@ -209,6 +209,7 @@ void ASReadStreamCallBack
 @synthesize state;
 @synthesize bitRate;
 @dynamic progress;
+@dynamic percentageCompleted;
 
 //
 // initWithURL
@@ -737,6 +738,11 @@ void ASReadStreamCallBack
 			@"Start illegally invoked on an audio stream that has already started.");
 		
 	#ifdef TARGET_OS_IPHONE			
+		
+		hasReadFromHeaders = NO;
+		contentLength = 0;
+		bytesRead = 0;
+		
 		//
 		// Set the audio session category so that we continue to play if the
 		// iPhone/iPod auto-locks.
@@ -880,6 +886,26 @@ cleanup:
 // returns the current playback progress. Will return zero if sampleRate has
 // not yet been detected.
 //
+- (double)percentageCompleted
+{
+	double percentage = 0;
+	@synchronized(self)
+	{
+		if (contentLength == 0)
+			return 0;
+		
+		percentage = (double)bytesRead / (double) contentLength;
+	}
+	
+	return percentage;
+}
+
+//
+// progress
+//
+// returns the current playback progress. Will return zero if sampleRate has
+// not yet been detected.
+//
 - (double)progress
 {
 	@synchronized(self)
@@ -1005,6 +1031,21 @@ cleanup:
 	}
 }
 
+- (void) readFromHeaders:(CFReadStreamRef)aStream
+{
+	NSLog(@"Reading from headers.");
+	
+	CFHTTPMessageRef headers = (CFHTTPMessageRef)CFReadStreamCopyProperty(aStream, kCFStreamPropertyHTTPResponseHeader);
+	NSDictionary*	fields = (NSDictionary*)CFHTTPMessageCopyAllHeaderFields(headers);
+	
+	NSString* val = (NSString*)[fields valueForKey:@"Content-Length"];
+	contentLength = [val intValue];	
+	[fields release];
+	CFRelease(headers);
+	
+	hasReadFromHeaders = YES;
+}
+
 //
 // handleReadFromStream:eventType:data:
 //
@@ -1085,6 +1126,9 @@ cleanup:
 	}
 	else if (eventType == kCFStreamEventHasBytesAvailable)
 	{
+		if (!hasReadFromHeaders)
+			[self readFromHeaders:aStream];
+		
 		UInt8 bytes[kAQBufSize];
 		CFIndex length;
 		@synchronized(self)
@@ -1109,6 +1153,7 @@ cleanup:
 			{
 				return;
 			}
+			
 		}
 
 		if (discontinuous)
@@ -1129,6 +1174,8 @@ cleanup:
 				return;
 			}
 		}
+		bytesRead += length;
+		NSLog(@"Percentage: %f", [self percentageCompleted]);
 	}
 }
 

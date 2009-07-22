@@ -22,6 +22,7 @@
 	IBOutlet UIButton *button;
 	IBOutlet UIView *volumeSlider;
 	IBOutlet UILabel *positionLabel;
+	IBOutlet UIProgressView* playbackProgressView;
 	AudioStreamer *streamer;
 	NSTimer *progressUpdateTimer;
 }
