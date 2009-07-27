@@ -40,6 +40,7 @@ NSString * const AS_AUDIO_QUEUE_FLUSH_FAILED_STRING = @"Audio queue flush failed
 NSString * const AS_GET_AUDIO_TIME_FAILED_STRING = @"Audio queue get current time failed.";
 NSString * const AS_AUDIO_STREAMER_FAILED_STRING = @"Audio playback failed";
 NSString * const AS_NETWORK_CONNECTION_FAILED_STRING = @"Network connection failed";
+NSString * const AS_AUDIO_BUFFER_TOO_SMALL_STRING = @"Audio packets are larger than kAQBufSize.";
 
 @interface AudioStreamer ()
 @property (readwrite) AudioStreamerState state;
@@ -336,6 +337,8 @@ void ASReadStreamCallBack
 			return AS_AUDIO_QUEUE_STOP_FAILED_STRING;
 		case AS_AUDIO_STREAMER_FAILED:
 			return AS_AUDIO_STREAMER_FAILED_STRING;
+		case AS_AUDIO_BUFFER_TOO_SMALL:
+			return AS_AUDIO_BUFFER_TOO_SMALL_STRING;
 		default:
 			return AS_AUDIO_STREAMER_FAILED_STRING;
 	}
@@ -389,7 +392,7 @@ void ASReadStreamCallBack
 		UIAlertView *alert =
 			[[[UIAlertView alloc]
 				initWithTitle:NSLocalizedStringFromTable(@"Audio Error", @"Errors", nil)
-				message:NSLocalizedStringFromTable(@"Attempt to play streaming audio failed.", @"Errors", nil)
+				message:NSLocalizedStringFromTable([AudioStreamer stringForErrorCode:self.errorCode], @"Errors", nil)
 				delegate:self
 				cancelButtonTitle:@"OK"
 				otherButtonTitles: nil]
@@ -406,7 +409,7 @@ void ASReadStreamCallBack
 				defaultButton:NSLocalizedString(@"OK", @"")
 				alternateButton:nil
 				otherButton:nil
-				informativeTextWithFormat:@"Attempt to play streaming audio failed."];
+				informativeTextWithFormat:[AudioStreamer stringForErrorCode:self.errorCode]];
 		[alert
 			performSelector:@selector(runModal)
 			onThread:[NSThread mainThread]
@@ -727,15 +730,17 @@ void ASReadStreamCallBack
 
 	@synchronized(self)
 	{
-		if (state == AS_STOPPING)
+		if (state != AS_STARTING_FILE_THREAD)
 		{
+			if (state != AS_STOPPING &&
+				state != AS_STOPPED)
+			{
+				NSLog(@"### Not starting audio thread. State code is: %ld", state);
+			}
 			self.state = AS_INITIALIZED;
 			[pool release];
 			return;
 		}
-		
-		NSAssert(state == AS_STARTING_FILE_THREAD,
-			@"Start illegally invoked on an audio stream that has already started.");
 		
 	#ifdef TARGET_OS_IPHONE			
 		
@@ -1420,6 +1425,7 @@ cleanup:
 		{
 			SInt64 packetOffset = inPacketDescriptions[i].mStartOffset;
 			SInt64 packetSize   = inPacketDescriptions[i].mDataByteSize;
+			size_t bufSpaceRemaining;
 			
 			@synchronized(self)
 			{
@@ -1438,11 +1444,18 @@ cleanup:
 				{
 					return;
 				}
+				
+				if (packetSize > kAQBufSize)
+				{
+					[self failWithErrorCode:AS_AUDIO_BUFFER_TOO_SMALL];
+				}
+
+				bufSpaceRemaining = kAQBufSize - bytesFilled;
 			}
 
 			// if the space remaining in the buffer is not enough for this packet, then enqueue the buffer.
-			size_t bufSpaceRemaining = kAQBufSize - bytesFilled;
-			if (bufSpaceRemaining < packetSize) {
+			if (bufSpaceRemaining < packetSize)
+			{
 				[self enqueueBuffer];
 			}
 			
