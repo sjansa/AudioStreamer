@@ -12,7 +12,7 @@
 //  appreciated but not required.
 //
 
-#import "AudioStreamer.h"x
+#import "AudioStreamer.h"
 #ifdef TARGET_OS_IPHONE			
 #import <CFNetwork/CFNetwork.h>
 #endif
@@ -1337,7 +1337,7 @@ cleanup:
 			// get the cookie size
 			UInt32 cookieSize;
 			Boolean writable;
-			OSErr ignorableError;
+			OSStatus ignorableError;
 			ignorableError = AudioFileStreamGetPropertyInfo(inAudioFileStream, kAudioFileStreamProperty_MagicCookieData, &cookieSize, &writable);
 			if (ignorableError)
 			{
